@@ -23,6 +23,7 @@ char* RADIO_STRINGS[6] = {
 };
 
 
+
 Dashboard::Dashboard(QWidget *parent) : QWidget(parent) {
     QGridLayout *layout = new QGridLayout(this);
 
@@ -85,6 +86,7 @@ void Dashboard::method_group_init(){
         method_radios[i] = new QRadioButton(RADIO_STRINGS[i]);
         layout->addWidget(method_radios[i], i, 0);
     }
+    method_radios[0]->setChecked(true);
 
     method_group->setFixedHeight(140);
     method_group->setLayout(layout);
@@ -148,52 +150,127 @@ void Dashboard::clear(){
         QTableWidgetItem* empty = new QTableWidgetItem("");
         constant_table->setItem(r, 0, empty);
     }
+
+    for (int r = 0; r < solution_table->rowCount(); r++){
+        QTableWidgetItem* empty = new QTableWidgetItem("");
+        solution_table->setItem(r, 0, empty);
+    }
 }
 
 
-void Dashboard::read_equation(){
-    int max_r = -1;
-    int max_c = -1;
+Equation Dashboard::read_equation(){
+    size_t max_row = matrix_table->rowCount();
+    size_t max_col = matrix_table->columnCount();
+    size_t r = 0;
+    size_t c = 0;
+    matrix_t Am;
 
-    for (int r = 0; r < matrix_table->rowCount(); r++){
-        for (int c = 0; c < matrix_table->columnCount(); c++){
-            QTableWidgetItem* e = matrix_table->item(r, c);
-            if (e && !e->text().isEmpty()) {
-                max_r = max(max_r, r);
-                max_c = max(max_c, c);
-            }
+    while(r < max_row) {
+        QTableWidgetItem* e = matrix_table->item(r, c);
+        bool is_empty = (!e) || (e->text().isEmpty());
+
+        if (c == 0) {
+            if (is_empty) break;
+            Am.push_back({});
+        }
+
+        if (c < max_col && !is_empty) {
+            long double e_value = e->text().toDouble();
+            Am.back().push_back(e_value);
+            c++;
+        } else {
+            c = 0;
+            r++;
         }
     }
 
-    // if ((max_r == -1) && (max_c == -1)) return;
+    max_row = constant_table->rowCount();
+    matrix_t bm;
+    r = 0;
+    while(r < max_row) {
+        QTableWidgetItem* e = constant_table->item(r, 0);
+        bool is_empty = (!e) || (e->text().isEmpty());
 
-    // Matrix coef_matrix;
-    // Matrix constant_matrix;
+        if (is_empty) break;
+        long double e_value = e->text().toDouble();
+        bm.push_back({e_value});
+        r++;
+    }
+    // for (size_t r = 0; r < m.size(); r++){
+    //     for (size_t c = 0; c < m[r].size(); c++){
+    //         std::cout << m[r][c] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+    try {
+        Matrix A(Am);
+        Matrix b(bm);
+        Equation eq(A, b);
+        return eq;
+    } catch (Matrix::not_matrix e) {
+        std::cout << e.what() << std::endl; fflush(stdout);
+    } catch (Equation::row_not_fit e) {
+        std::cout << e.what() << std::endl; fflush(stdout);
+    }
 }
 
+
+void Dashboard::fill_solution(Matrix solution){
+    for (int r = 0; r < solution.rows; r++) {
+        double e_value = solution[r][0];
+        if (is_zero(e_value)) e_value = 0;
+        QTableWidgetItem* e = new QTableWidgetItem(QString::number(e_value));
+        solution_table->setItem(r, 0, e);
+    }
+}
 
 
 void Dashboard::solve(){
-    read_equation();
+    Equation eq = read_equation();
 
     int method_id;
-
     for (method_id = 0; method_id < METHOD_COUNT; method_id++){
         if (method_radios[method_id]->isChecked()) break;
     }
+
+    Equations eqs;
+    Matrix solution;
+
     switch (method_id){
     case GAUSSIAN_ELIMINATOIN:
+        solution = eq.Gaussian_elimination();
+        break;
 
-    break;
+    case GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT:
+        solution = eq.Gaussian_elimination_with_column_pivot();
+        break;
+
     case DOOLITTLE_DECOMPOSE:
+        eqs = eq.Doolittle_decompose();
+        for (auto A_it = eqs.As.begin(); A_it != eqs.As.end(); A_it++){
+            std::cout << *A_it << std::endl;
+            fflush(stdout);
+        }
+        solution = eqs.solve();
+        break;
 
-    break;
+    case CROUT_DECOMPOSE:
+        solution = eq.Crout_decompose().solve();
+        break;
 
+    case CHOLESKY_DECOMPOSE:
+        try {
+            solution = eq.Cholesky_decompose().solve();
+        } catch (Matrix::not_symmetric_positive_definite e) {
+            std::cout << e.what() << std::endl; fflush(stdout);
+        }
+        break;
+
+    case REFINED_CHOLESKY_DECOMPOSE:
+        solution = eq.refined_Cholesky_decompose().solve();
+        break;
     }
+
+    fill_solution(solution);
 }
-
-
-
-
-
-

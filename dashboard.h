@@ -35,7 +35,8 @@ private:
     void method_group_init();
     void action_group_init();
     void decompose_label_init();
-    void read_equation();
+    Equation read_equation();
+    void fill_solution(Matrix solution);
 
     void demo();
     void clear();

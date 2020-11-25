@@ -1,9 +1,6 @@
 #include "eq.h"
+#include "utils.h"
 
-
-bool is_zero(long double x){
-    return (abs(x) < 1e-10);
-}
 
 bool Matrix::operator==(Matrix other){
     if ((rows != other.rows) || (cols != other.cols)){
@@ -333,6 +330,25 @@ Matrix Equation::Gaussian_elimination_with_column_pivot() {
     return Ab.to_upper_with_column_pivot().upper2diag().last_col();
 }
 
+
+Equations Equation::Doolittle_decompose(){
+    return Equations(A.Doolittle_decompose(), b);
+}
+
+
+Equations Equation::Crout_decompose(){
+    return Equations(A.Crout_decompose(), b);
+}
+
+
+Equations Equation::Cholesky_decompose(){
+    return Equations(A.Cholesky_decompose(), b);
+}
+
+
+Equations Equation::refined_Cholesky_decompose(){
+    return Equations(A.refined_Cholesky_decompose(), b);
+}
 
 
 Matrix Equations::solve(){

@@ -35,6 +35,13 @@ public:
     //     }
     // };
 
+    class not_matrix: public std::exception {
+    public:
+        const char* what() const throw() {
+            return "The two dimensional vector cannot be parsed as a matrix";
+        }
+    };
+
     class not_square: public std::exception {
     public:  
         const char* what() const throw() {  
@@ -49,14 +56,21 @@ public:
         }
     };
 
+    Matrix(): rows(0), cols(0), m({}) {}
+    Matrix(int rows_, int cols_): rows(rows_), cols(cols_) {
+        m = matrix_t(rows, std::vector<long double>(cols, 0));
+    }
     Matrix(matrix_t m_){
+        size_t prev_col = m_[0].size();
+        for (size_t r = 0; r < m_.size(); r++){
+            // printf("prev_col = %d, m[r].size() = %d\n", prev_col, m_[r].size()); fflush(stdout);
+            if (prev_col != m_[r].size()) throw not_matrix();
+            prev_col = m_[r].size();
+        }
+
         m = m_;
         rows = m_.size();
         cols = rows > 0 ? m_[0].size() : 0;
-    }
-
-    Matrix(int rows_, int cols_): rows(rows_), cols(cols_) {
-        m = matrix_t(rows, std::vector<long double>(cols, 0));
     }
 
     bool operator==(Matrix other);
@@ -91,27 +105,44 @@ public:
 };
 
 
-class Equation {
-public:
-    Matrix A;
-    Matrix b;
-
-    Equation(Matrix A_, Matrix b_): A(A_), b(b_) {}
-
-    bool operator==(Equation other);
-    Matrix augment();
-    Matrix Gaussian_elimination();
-    Matrix Gaussian_elimination_with_column_pivot();
-    friend std::ostream& operator<< (std::ostream& os, Equation &eq);
-};
-
-
 class Equations {
 public:
     std::vector<Matrix> As;
     Matrix b;
 
+    Equations(): As({}), b(){}
     Equations(std::vector<Matrix> As_, Matrix b_): As(As_), b(b_){}
     Matrix solve();
 };
+
+
+class Equation {
+public:
+    Matrix A;
+    Matrix b;
+
+    Equation(Matrix A_, Matrix b_): A(A_), b(b_) {
+        std::cout << A_.rows << " " << b_.rows << std::endl;
+        if (A_.rows != b_.rows) throw row_not_fit();
+    }
+
+    class row_not_fit: public std::exception {
+    public:
+        const char* what() const throw() {
+            return "Coefficient matrix should have same rows with the constant vector";
+        }
+    };
+
+    bool operator==(Equation other);
+    Matrix augment();
+    Matrix Gaussian_elimination();
+    Matrix Gaussian_elimination_with_column_pivot();
+    Equations Doolittle_decompose();
+    Equations Crout_decompose();
+    Equations Cholesky_decompose();
+    Equations refined_Cholesky_decompose();
+
+    friend std::ostream& operator<< (std::ostream& os, Equation &eq);
+};
+
 
