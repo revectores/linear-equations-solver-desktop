@@ -1,0 +1,7 @@
+.DS_Store
+Makefile
+*.out
+*.o
+*.bak
+*.app
+.qmake.stash
