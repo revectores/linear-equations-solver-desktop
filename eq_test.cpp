@@ -1,4 +1,4 @@
-#include "eq.h"
+#include "eq_test.h"
 
 
 Matrix A1({
@@ -46,6 +46,9 @@ Matrix A3({
 Matrix b3({{7}, {5}, {-13}, {2}, {6}, {-12}, {14}, {-4}, {5}, {-5}});
 Equation eq3(A3, b3);
 Matrix s3({{2}, {1}, {-3}, {0}, {1}, {-2}, {3}, {0}, {1}, {-1}});
+
+std::vector<Equation> TEST_EQUATIONS = {eq1, eq2, eq3};
+
 
 
 void test_Gaussian_elimination() {
@@ -138,10 +141,10 @@ void test_Crout_decompose(){
 }
 
 
-int main(){    
-    test_Gaussian_elimination();
-    test_Doolittle_decompose();
-    test_Cholesky_decompose();
-    test_refined_Cholesky_decompose();
-    test_Crout_decompose();
-}
+// int main(){    
+//     test_Gaussian_elimination();
+//     test_Doolittle_decompose();
+//     test_Cholesky_decompose();
+//     test_refined_Cholesky_decompose();
+//     test_Crout_decompose();
+// }
