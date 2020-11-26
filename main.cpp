@@ -7,7 +7,7 @@ int main(int argc, char *argv[]){
 
     Dashboard window;
 
-    window.resize(1080, 550);
+    window.resize(1080, 220);
     window.setWindowTitle("Linear Equation Solver");
     window.show();
 

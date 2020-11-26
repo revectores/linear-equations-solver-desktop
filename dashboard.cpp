@@ -13,7 +13,7 @@ enum method {
     REFINED_CHOLESKY_DECOMPOSE
 };
 
-char* RADIO_STRINGS[6] = {
+std::string RADIO_STRINGS[6] = {
     "Gaussian Elimination",
     "Gaussian Elimination with Column Pivot",
     "Doolittle Decompose",
@@ -26,22 +26,25 @@ char* RADIO_STRINGS[6] = {
 
 Dashboard::Dashboard(QWidget *parent) : QWidget(parent) {
     QGridLayout *layout = new QGridLayout(this);
+    DecomposeWindow decompose_window;
+    decompose_window.show();
 
     matrix_table_init();
     constant_table_init();
     solution_table_init();
     method_group_init();
     action_group_init();
-    decompose_label_init();
+    info_label_init();
 
     layout->addWidget(matrix_table, 0, 0, 2, 1);
     layout->addWidget(solution_table, 0, 1, 2, 1);
     layout->addWidget(constant_table, 0, 2, 2, 1);
     layout->addWidget(method_group, 0, 3);
     layout->addWidget(action_group, 1, 3);
-    layout->addWidget(decompose_label, 2, 0, 1, 4);
+    layout->addWidget(info_label, 2, 0, 1, 4);
 
-    cur_demo_id = 0;
+    cur_demo_id = 1;
+    clear();
 }
 
 
@@ -83,7 +86,7 @@ void Dashboard::method_group_init(){
     QGridLayout *layout = new QGridLayout;
 
     for (int i = 0; i < METHOD_COUNT; i++){
-        method_radios[i] = new QRadioButton(RADIO_STRINGS[i]);
+        method_radios[i] = new QRadioButton(QString::fromStdString(RADIO_STRINGS[i]));
         layout->addWidget(method_radios[i], i, 0);
     }
     method_radios[0]->setChecked(true);
@@ -97,32 +100,57 @@ void Dashboard::action_group_init(){
     QGridLayout *layout = new QGridLayout;
 
     QPushButton *solve_btn = new QPushButton("Solve");
-    QPushButton *demo_btn = new QPushButton("Demo 1");
+    QPushButton *demo_btns[TEST_EQUATIONS.size()];
+
     QPushButton *clear_btn = new QPushButton("Clear");
     QPushButton *exit_btn = new QPushButton("Exit");
 
     connect(solve_btn, &QPushButton::clicked, this, &Dashboard::solve);
-    connect(demo_btn, &QPushButton::clicked, this, &Dashboard::demo);
     connect(clear_btn, &QPushButton::clicked, this, &Dashboard::clear);
 
-    layout->addWidget(solve_btn, 0, 0, 1, 2);
-    layout->addWidget(demo_btn, 1, 0);
-    layout->addWidget(clear_btn, 1, 1);
+    for (int i = 0; i < TEST_EQUATIONS.size(); i++){
+        demo_btns[i] = new QPushButton(QString("Equation ") + QString::number(i + 1));
+        connect(demo_btns[i], &QPushButton::clicked, this, [=]{demo(i);});
+        layout->addWidget(demo_btns[i], 1, i);
+    }
+
+    layout->addWidget(solve_btn, 0, 0, 1, 4);
+    layout->addWidget(clear_btn, 1, 3);
 
     action_group->setFixedHeight(212-140);
     action_group->setLayout(layout);
 }
 
 
-void Dashboard::decompose_label_init(){
-    decompose_label = new QLabel;
+void Dashboard::info_label_init(){
+    info_label = new QLabel;
+    info_label->setText("The execution info and error message will be shown here.");
+    // info_label->setStyleSheet("QLabel {color: blue;}");
 }
 
 
-void Dashboard::demo(){
-    Equation eq = TEST_EQUATIONS[cur_demo_id];
+void Dashboard::info_msg(std::string msg){
+    info_label->clear();
+    // info_label->setStyleSheet("QLabel {color: blue;}");
+    info_label->setText(QString::fromStdString("SUCCESS: " + msg));
+}
+
+
+void Dashboard::err_msg(std::string msg){
+    info_label->clear();
+    // info_label->setStyleSheet("QLabel {color: yellow;}");
+    info_label->setText(QString::fromStdString("ERROR: " + msg));
+}
+
+
+
+
+void Dashboard::demo(int demo_id){
+    Equation eq = TEST_EQUATIONS[demo_id];
     Matrix A = eq.A;
     Matrix b = eq.b;
+
+    clear();
 
     for (int r = 0; r < A.rows; r++){
         for (int c = 0; c < A.cols; c++){
@@ -153,8 +181,11 @@ void Dashboard::clear(){
 
     for (int r = 0; r < solution_table->rowCount(); r++){
         QTableWidgetItem* empty = new QTableWidgetItem("");
+        empty->setFlags(empty->flags() & ~Qt::ItemIsEditable);
         solution_table->setItem(r, 0, empty);
     }
+
+    decompose_window.clear();
 }
 
 
@@ -168,6 +199,7 @@ Equation Dashboard::read_equation(){
     while(r < max_row) {
         QTableWidgetItem* e = matrix_table->item(r, c);
         bool is_empty = (!e) || (e->text().isEmpty());
+        // printf("(%d, %d)\n", r, c);
 
         if (c == 0) {
             if (is_empty) break;
@@ -183,6 +215,7 @@ Equation Dashboard::read_equation(){
             r++;
         }
     }
+    // printf("1111");
 
     max_row = constant_table->rowCount();
     matrix_t bm;
@@ -209,9 +242,9 @@ Equation Dashboard::read_equation(){
         Equation eq(A, b);
         return eq;
     } catch (Matrix::not_matrix e) {
-        std::cout << e.what() << std::endl; fflush(stdout);
+        err_msg(e.what());
     } catch (Equation::row_not_fit e) {
-        std::cout << e.what() << std::endl; fflush(stdout);
+        err_msg(e.what());
     }
 }
 
@@ -221,6 +254,7 @@ void Dashboard::fill_solution(Matrix solution){
         double e_value = solution[r][0];
         if (is_zero(e_value)) e_value = 0;
         QTableWidgetItem* e = new QTableWidgetItem(QString::number(e_value));
+        // e->setFlags(e->flags() & ~Qt::ItemIsEditable);
         solution_table->setItem(r, 0, e);
     }
 }
@@ -237,40 +271,59 @@ void Dashboard::solve(){
     Equations eqs;
     Matrix solution;
 
-    switch (method_id){
-    case GAUSSIAN_ELIMINATOIN:
-        solution = eq.Gaussian_elimination();
-        break;
+    try {
+        switch (method_id){
+        case GAUSSIAN_ELIMINATOIN:
+            solution = eq.Gaussian_elimination();
+            break;
 
-    case GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT:
-        solution = eq.Gaussian_elimination_with_column_pivot();
-        break;
+        case GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT:
+            solution = eq.Gaussian_elimination_with_column_pivot();
+            break;
 
-    case DOOLITTLE_DECOMPOSE:
-        eqs = eq.Doolittle_decompose();
-        for (auto A_it = eqs.As.begin(); A_it != eqs.As.end(); A_it++){
-            std::cout << *A_it << std::endl;
-            fflush(stdout);
+        case DOOLITTLE_DECOMPOSE:
+            eqs = eq.Doolittle_decompose();
+            solution = eqs.solve();
+            break;
+
+        case CROUT_DECOMPOSE:
+            eqs = eq.Crout_decompose();
+            solution = eqs.solve();
+            break;
+
+        case CHOLESKY_DECOMPOSE:
+            try {
+                eqs = eq.Cholesky_decompose();
+                solution = eqs.solve();
+            } catch (Matrix::not_symmetric_positive_definite e) {
+                err_msg(e.what());
+            }
+            break;
+
+        case REFINED_CHOLESKY_DECOMPOSE:
+            try {
+                eqs = eq.refined_Cholesky_decompose();
+                solution = eqs.solve();
+            } catch (Matrix::not_symmetric_positive_definite e) {
+                err_msg(e.what());
+            }
+            break;
         }
-        solution = eqs.solve();
-        break;
-
-    case CROUT_DECOMPOSE:
-        solution = eq.Crout_decompose().solve();
-        break;
-
-    case CHOLESKY_DECOMPOSE:
-        try {
-            solution = eq.Cholesky_decompose().solve();
-        } catch (Matrix::not_symmetric_positive_definite e) {
-            std::cout << e.what() << std::endl; fflush(stdout);
-        }
-        break;
-
-    case REFINED_CHOLESKY_DECOMPOSE:
-        solution = eq.refined_Cholesky_decompose().solve();
-        break;
+    } catch (Matrix::dimension_not_fit e) {
+        err_msg(e.what());
+        return;
     }
 
+    // std::cout << solution << std::endl; fflush(stdout);
     fill_solution(solution);
+    info_msg("The equation has been successfully solved by " + RADIO_STRINGS[method_id]);
+
+    decompose_window.clear();
+    if (method_id >= DOOLITTLE_DECOMPOSE){
+        for (int i = 0; i < eqs.As.size(); i++) {
+            decompose_window.fill(i, eqs.As[i]);
+        }
+        decompose_window.show();
+    }
+
 }

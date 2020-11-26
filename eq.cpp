@@ -29,7 +29,7 @@ Matrix Matrix::operator*(long double coef){
 
 Matrix Matrix::operator*(Matrix other){
     if (cols != other.rows) {
-        throw std::length_error("Matrix dimension not fit");
+        throw Matrix::dimension_not_fit();
     }
     Matrix prod(rows, other.cols);
 
@@ -198,17 +198,27 @@ Matrix Matrix::upper2diag(){
         }
     }
 
-    for (int row = 0; row < rows; row++) {
-        m[row][cols-1] /= m[row][row];
-        m[row][row] = 1;
+    return *this;
+}
+
+
+Matrix Matrix::diag2identity(){
+    for (int r = 0; r < rows; r++){
+        m[r][cols - 1] /= m[r][r];
+        m[r][r] = 1;
     }
+    // for (int r = 0; r < rows; r++) {
+    //     for (int c = 0; c < cols; c++){
+    //         m[r][c] /= m[r][r];
+    //     }
+    // }
     return *this;
 }
 
 
 Matrix Matrix::get_augment(Matrix b){
     if (b.rows != rows){
-        throw std::length_error("matrix rows not fit");
+        throw Matrix::dimension_not_fit();
     }
     Matrix Mb(*this);
     for (int row = 0; row < rows; row++){
@@ -321,13 +331,13 @@ std::ostream& operator<< (std::ostream& os, Equation &eq){
 
 Matrix Equation::Gaussian_elimination() {
     Matrix Ab = A.get_augment(b);
-    return Ab.to_upper().upper2diag().last_col();
+    return Ab.to_upper().upper2diag().diag2identity().last_col();
 }
 
 
 Matrix Equation::Gaussian_elimination_with_column_pivot() {
     Matrix Ab = A.get_augment(b);
-    return Ab.to_upper_with_column_pivot().upper2diag().last_col();
+    return Ab.to_upper_with_column_pivot().upper2diag().diag2identity().last_col();
 }
 
 

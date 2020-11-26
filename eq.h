@@ -1,3 +1,7 @@
+#ifndef EQ_H
+#define EQ_H
+
+
 #include <cstdio>
 #include <iostream>
 #include <cmath>
@@ -44,8 +48,15 @@ public:
 
     class not_square: public std::exception {
     public:  
-        const char* what() const throw() {  
+        const char* what() const throw() {
             return "The matrix is not a square matrix";
+        }
+    };  
+
+    class dimension_not_fit: public std::exception {
+    public:  
+        const char* what() const throw() {
+            return "Matrix dimension not fit";
         }
     };  
 
@@ -61,11 +72,13 @@ public:
         m = matrix_t(rows, std::vector<long double>(cols, 0));
     }
     Matrix(matrix_t m_){
-        size_t prev_col = m_[0].size();
-        for (size_t r = 0; r < m_.size(); r++){
-            // printf("prev_col = %d, m[r].size() = %d\n", prev_col, m_[r].size()); fflush(stdout);
-            if (prev_col != m_[r].size()) throw not_matrix();
-            prev_col = m_[r].size();
+        if (m_.size() > 0){
+            size_t prev_col = m_[0].size();
+            for (size_t r = 0; r < m_.size(); r++){
+                // printf("prev_col = %d, m[r].size() = %d\n", prev_col, m_[r].size()); fflush(stdout);
+                // if (prev_col != m_[r].size()) throw not_matrix();
+                prev_col = m_[r].size();
+            }
         }
 
         m = m_;
@@ -94,6 +107,7 @@ public:
     Matrix to_upper();
     Matrix to_upper_with_column_pivot();
     Matrix upper2diag();
+    Matrix diag2identity();
     Matrix get_augment(Matrix b);
 
     std::vector<Matrix> Doolittle_decompose();
@@ -121,17 +135,17 @@ public:
     Matrix A;
     Matrix b;
 
-    Equation(Matrix A_, Matrix b_): A(A_), b(b_) {
-        std::cout << A_.rows << " " << b_.rows << std::endl;
-        if (A_.rows != b_.rows) throw row_not_fit();
-    }
-
     class row_not_fit: public std::exception {
     public:
         const char* what() const throw() {
             return "Coefficient matrix should have same rows with the constant vector";
         }
     };
+
+    Equation(Matrix A_, Matrix b_): A(A_), b(b_) {
+        // std::cout << A_.rows << " " << b_.rows << std::endl;
+        // if (A_.rows != b_.rows) throw row_not_fit();
+    }
 
     bool operator==(Equation other);
     Matrix augment();
@@ -146,3 +160,4 @@ public:
 };
 
 
+#endif
