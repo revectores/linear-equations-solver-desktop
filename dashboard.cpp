@@ -1,25 +1,37 @@
 #include "dashboard.h"
 #include <cstdio>
+#include <cmath>
 
 
 
-const int METHOD_COUNT = 6;
 enum method {
     GAUSSIAN_ELIMINATOIN,
     GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT,
     DOOLITTLE_DECOMPOSE,
     CROUT_DECOMPOSE,
     CHOLESKY_DECOMPOSE,
-    REFINED_CHOLESKY_DECOMPOSE
+    REFINED_CHOLESKY_DECOMPOSE,
+    JACOBI_ITERATION,
+    GAUSS_SEIDOL_ITERATION,
+    SOR,
 };
 
-std::string RADIO_STRINGS[6] = {
+enum method_type {
+    ELIMINATION,
+    DECOMPOSITION,
+    ITERATION
+};
+
+std::string RADIO_STRINGS[METHOD_COUNT] = {
     "Gaussian Elimination",
     "Gaussian Elimination with Column Pivot",
     "Doolittle Decompose",
     "Crout Decompose",
     "Cholesky Decompose",
     "Refined Cholesky Decompose",
+    "Jacobi Iteration",
+    "Gauss-Seidol Iteration",
+    "Successive of Relaxation"
 };
 
 
@@ -33,6 +45,7 @@ Dashboard::Dashboard(QWidget *parent) : QWidget(parent) {
     constant_table_init();
     solution_table_init();
     method_group_init();
+    parameter_group_init();
     action_group_init();
     info_label_init();
 
@@ -40,7 +53,8 @@ Dashboard::Dashboard(QWidget *parent) : QWidget(parent) {
     layout->addWidget(solution_table, 0, 1, 2, 1);
     layout->addWidget(constant_table, 0, 2, 2, 1);
     layout->addWidget(method_group, 0, 3);
-    layout->addWidget(action_group, 1, 3);
+    layout->addWidget(parameter_group, 0, 4);
+    layout->addWidget(action_group, 1, 3, 1, 2);
     layout->addWidget(info_label, 2, 0, 1, 4);
 
     cur_demo_id = 1;
@@ -87,12 +101,36 @@ void Dashboard::method_group_init(){
 
     for (int i = 0; i < METHOD_COUNT; i++){
         method_radios[i] = new QRadioButton(QString::fromStdString(RADIO_STRINGS[i]));
+        connect(method_radios[i], &QPushButton::clicked, this, [=]{method_radio_checked(i);});
         layout->addWidget(method_radios[i], i, 0);
     }
     method_radios[0]->setChecked(true);
 
-    method_group->setFixedHeight(140);
+    method_group->setFixedHeight(200);
     method_group->setLayout(layout);
+}
+
+void Dashboard::parameter_group_init(){
+    parameter_group = new QGroupBox();
+    QGridLayout *layout = new QGridLayout;
+
+    QLabel *precision_label = new QLabel("precision = ");
+    QLabel *relaxation_factor_label = new QLabel("relaxation factor = ");
+    precision_edit = new QLineEdit;
+    relaxation_factor_edit = new QLineEdit;
+    precision_edit->setFixedWidth(100);
+
+    layout->addWidget(precision_label, 0, 0);
+    layout->addWidget(precision_edit, 0, 1);
+    layout->addWidget(relaxation_factor_label, 1, 0);
+    layout->addWidget(relaxation_factor_edit, 1, 1);
+
+    // parameter_group->setFixedWidth();
+    parameter_group->setFixedHeight(200);
+    parameter_group->setLayout(layout);
+
+    precision_edit->setDisabled(1);
+    relaxation_factor_edit->setDisabled(1);
 }
 
 void Dashboard::action_group_init(){
@@ -117,7 +155,7 @@ void Dashboard::action_group_init(){
     layout->addWidget(solve_btn, 0, 0, 1, 4);
     layout->addWidget(clear_btn, 1, 3);
 
-    action_group->setFixedHeight(212-140);
+    action_group->setFixedHeight(70);
     action_group->setLayout(layout);
 }
 
@@ -144,6 +182,50 @@ void Dashboard::err_msg(std::string msg){
 
 
 
+int Dashboard::get_cur_method_type(){
+    switch (cur_method_id) {
+    case GAUSSIAN_ELIMINATOIN:
+    case GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT:
+        return ELIMINATION;
+
+    case DOOLITTLE_DECOMPOSE:
+    case CROUT_DECOMPOSE:
+    case CHOLESKY_DECOMPOSE:
+    case REFINED_CHOLESKY_DECOMPOSE:
+        return DECOMPOSITION;
+
+    case JACOBI_ITERATION:
+    case GAUSS_SEIDOL_ITERATION:
+    case SOR:
+        return ITERATION;
+    }
+}
+
+
+void Dashboard::method_radio_checked(int method_radio_id){
+    cur_method_id = method_radio_id;
+    // std::cout << method_radio_id << std::endl;
+    if (get_cur_method_type() == ITERATION) {
+        precision_edit->setDisabled(0);
+        if (read_precision() == 0){
+            precision_edit->setText("0.000001");
+        }
+    } else {
+        precision_edit->clear();
+        precision_edit->setDisabled(1);
+    }
+
+    if (cur_method_id == SOR) {
+        relaxation_factor_edit->setDisabled(0);
+        if (read_relaxation_factor() == 0){
+            relaxation_factor_edit->setText("1.25");
+        }
+    } else {
+        relaxation_factor_edit->clear();
+        relaxation_factor_edit->setDisabled(1);
+    }
+}
+
 
 void Dashboard::demo(int demo_id){
     Equation eq = TEST_EQUATIONS[demo_id];
@@ -166,25 +248,35 @@ void Dashboard::demo(int demo_id){
 }
 
 
-void Dashboard::clear(){
+
+void Dashboard::clear_matrix_table(){
     for (int r = 0; r < matrix_table->rowCount(); r++){
         for (int c = 0; c < matrix_table->columnCount(); c++){
             QTableWidgetItem* empty = new QTableWidgetItem("");
             matrix_table->setItem(r, c, empty);
         }
     }
+}
 
+void Dashboard::clear_constant_table(){
     for (int r = 0; r < constant_table->rowCount(); r++){
         QTableWidgetItem* empty = new QTableWidgetItem("");
         constant_table->setItem(r, 0, empty);
     }
+}
 
+void Dashboard::clear_solution_table(){
     for (int r = 0; r < solution_table->rowCount(); r++){
         QTableWidgetItem* empty = new QTableWidgetItem("");
-        empty->setFlags(empty->flags() & ~Qt::ItemIsEditable);
+        // empty->setFlags(empty->flags() & ~Qt::ItemIsEditable);
         solution_table->setItem(r, 0, empty);
     }
+}
 
+void Dashboard::clear(){
+    clear_matrix_table();
+    clear_constant_table();
+    clear_solution_table();
     decompose_window.clear();
 }
 
@@ -249,6 +341,41 @@ Equation Dashboard::read_equation(){
 }
 
 
+Matrix Dashboard::read_init_vector(){
+    size_t max_row = constant_table->rowCount();
+
+    matrix_t xm;
+    size_t r = 0;
+
+    while(r < max_row) {
+        QTableWidgetItem* e = solution_table->item(r, 0);
+        bool is_empty = (!e) || (e->text().isEmpty());
+
+        if (is_empty) break;
+        long double e_value = e->text().toDouble();
+        xm.push_back({e_value});
+        r++;
+    }
+
+    Matrix X(xm);
+    return X;
+}
+
+
+long double Dashboard::read_precision(){
+    long double precision = precision_edit->text().toDouble();
+    // std::cout << precision << std::endl;
+    return precision;
+}
+
+
+long double Dashboard::read_relaxation_factor(){
+    long double relaxation_factor = relaxation_factor_edit->text().toDouble();
+    return relaxation_factor;
+}
+
+
+
 void Dashboard::fill_solution(Matrix solution){
     for (int r = 0; r < solution.rows; r++) {
         double e_value = solution[r][0];
@@ -263,13 +390,42 @@ void Dashboard::fill_solution(Matrix solution){
 void Dashboard::solve(){
     Equation eq = read_equation();
 
-    int method_id;
-    for (method_id = 0; method_id < METHOD_COUNT; method_id++){
-        if (method_radios[method_id]->isChecked()) break;
-    }
+    int method_id = cur_method_id;
+    // for (method_id = 0; method_id < METHOD_COUNT; method_id++){
+    //     if (method_radios[method_id]->isChecked()) break;
+    // }
 
     Equations eqs;
     Matrix solution;
+    Matrix init_vector;
+    long double precision;
+    long double relaxation_factor;
+    size_t iteration_counter = 0;
+
+    if (method_id >= JACOBI_ITERATION) {
+        precision = read_precision();
+        if (precision == 0) {
+            precision = 1e-6;
+        }
+        std::cout << "precision: " << precision << std::endl;
+
+        init_vector = Matrix(eq.b.rows, 1, 1);
+        // init_vector = read_init_vector();
+        // if (init_vector.cols == 0) {
+        // }
+        std::cout << init_vector << std::endl;
+    }
+
+    if (method_id == SOR) {
+        relaxation_factor = read_relaxation_factor();
+        if (relaxation_factor == 0) {
+            relaxation_factor = 1.25;
+        }
+        if ((relaxation_factor < 0) || (relaxation_factor >=2)) {
+            err_msg("The relaxation factor w must meet 0 < w < 2");
+            return;
+        }
+    }
 
     try {
         switch (method_id){
@@ -308,22 +464,44 @@ void Dashboard::solve(){
                 err_msg(e.what());
             }
             break;
+
+        case JACOBI_ITERATION:
+            solution = eq.Jacobi_iteration(init_vector, precision, &iteration_counter);
+            break;
+
+        case GAUSS_SEIDOL_ITERATION:
+            solution = eq.Gauss_Seidol_iteration(init_vector, precision, &iteration_counter);
+            break;
+
+        case SOR:
+            solution = eq.SOR(relaxation_factor, init_vector, precision, &iteration_counter);
+            break;
         }
+
     } catch (Matrix::dimension_not_fit e) {
         err_msg(e.what());
         return;
     }
 
+    std::cout << iteration_counter << std::endl; fflush(stdout);
     // std::cout << solution << std::endl; fflush(stdout);
-    fill_solution(solution);
-    info_msg("The equation has been successfully solved by " + RADIO_STRINGS[method_id]);
+    if (std::isnan(solution[0][0]) || std::isinf(solution[0][0])){
+        clear_solution_table();
+        err_msg("The iteration matrix does not converge!");
+    } else {
+        fill_solution(solution);
+        std::string msg = "The equation has been successfully solved by " + RADIO_STRINGS[method_id];
+        if (get_cur_method_type() == ITERATION) {
+            msg += " in " + std::to_string(iteration_counter) + " iterations";
+        }
+        info_msg(msg);
+    }
 
     decompose_window.clear();
-    if (method_id >= DOOLITTLE_DECOMPOSE){
+    if (DOOLITTLE_DECOMPOSE <= method_id && method_id <= REFINED_CHOLESKY_DECOMPOSE){
         for (int i = 0; i < eqs.As.size(); i++) {
             decompose_window.fill(i, eqs.As[i]);
         }
         decompose_window.show();
     }
-
 }

@@ -1,6 +1,4 @@
-#ifndef EQ_H
-#define EQ_H
-
+#pragma once
 
 #include <cstdio>
 #include <iostream>
@@ -33,12 +31,6 @@ public:
         // }
     };
 
-    // class RangeOverFlowException: public std::exception {
-    //     virtual const char* msg() const throw() {
-    //         return "Range OverFlow";
-    //     }
-    // };
-
     class not_matrix: public std::exception {
     public:
         const char* what() const throw() {
@@ -58,7 +50,7 @@ public:
         const char* what() const throw() {
             return "Matrix dimension not fit";
         }
-    };  
+    };
 
     class not_symmetric_positive_definite: public std::exception {
     public:
@@ -67,9 +59,19 @@ public:
         }
     };
 
+    class matrix_slice_error: public std::exception {
+    public:
+        const char* what() const throw()  {
+            return "The slice end index must be larger than the slice start";
+        }
+    };
+
     Matrix(): rows(0), cols(0), m({}) {}
     Matrix(int rows_, int cols_): rows(rows_), cols(cols_) {
         m = matrix_t(rows, std::vector<long double>(cols, 0));
+    }
+    Matrix(int rows_, int cols_, long double value): rows(rows_), cols(cols_) {
+        m = matrix_t(rows, std::vector<long double>(cols, value));
     }
     Matrix(matrix_t m_){
         if (m_.size() > 0){
@@ -86,20 +88,32 @@ public:
         cols = rows > 0 ? m_[0].size() : 0;
     }
 
-    bool operator==(Matrix other);
-    Matrix operator*(long double coef);
-    Matrix operator*(Matrix other);
-    Row operator[](int row){
+    bool operator==(Matrix other) const;
+    Matrix operator+(Matrix other) const;
+    Matrix operator-() const;
+    Matrix operator-(Matrix other) const;
+    Matrix operator*(long double coef) const;
+    Matrix operator*(Matrix other) const;
+    Matrix get_inverse() const;
+    Row operator[](int row) {
         return Row(*this, row);
     }
 
-    Matrix col(int c);
-    Matrix last_col();
-    Matrix get_transpose();
-    bool is_symmetric();
-    bool is_upper();
-    bool is_lower();
-    bool is_diag();
+    bool is_empty() const;
+    bool is_symmetric() const;
+    bool is_upper() const;
+    bool is_lower() const;
+    bool is_diag() const;
+    long double inf_norm() const;
+    Matrix col(int c) const;
+    Matrix get_col_slice(int col_st, int col_ed) const;
+    Matrix last_col() const;
+    Matrix get_transpose() const;
+    Matrix get_diag() const;
+    Matrix get_upper() const;
+    Matrix get_lower() const;
+    Matrix get_identity() const;
+
     Matrix swap(int r1, int r2);
     Matrix row_add(int r1, int r2);
     Matrix row_sub(int r1, int r2);
@@ -108,12 +122,12 @@ public:
     Matrix to_upper_with_column_pivot();
     Matrix upper2diag();
     Matrix diag2identity();
-    Matrix get_augment(Matrix b);
 
-    std::vector<Matrix> Doolittle_decompose();
-    std::vector<Matrix> Crout_decompose();
-    std::vector<Matrix> Cholesky_decompose();
-    std::vector<Matrix> refined_Cholesky_decompose();
+    Matrix get_augment(Matrix A) const;
+    std::vector<Matrix> Doolittle_decompose() const;
+    std::vector<Matrix> Crout_decompose() const;
+    std::vector<Matrix> Cholesky_decompose() const;
+    std::vector<Matrix> refined_Cholesky_decompose() const;
 
     friend std::ostream& operator<< (std::ostream& os, Matrix &m);
 };
@@ -151,13 +165,16 @@ public:
     Matrix augment();
     Matrix Gaussian_elimination();
     Matrix Gaussian_elimination_with_column_pivot();
-    Equations Doolittle_decompose();
-    Equations Crout_decompose();
-    Equations Cholesky_decompose();
-    Equations refined_Cholesky_decompose();
+
+    Matrix Jacobi_iteration(Matrix init_vector=Matrix(), long double precision=1e-6, size_t* iteration_counter=nullptr);
+    Matrix Gauss_Seidol_iteration(Matrix init_vector=Matrix(), long double precision=1e-6, size_t* iteration_counter=nullptr);
+    Matrix SOR(long double w, Matrix init_vector=Matrix(), long double precision=1e-6, size_t* iteration_counter=nullptr);
+
+    Equations Doolittle_decompose() const;
+    Equations Crout_decompose() const;
+    Equations Cholesky_decompose() const;
+    Equations refined_Cholesky_decompose() const;
+
 
     friend std::ostream& operator<< (std::ostream& os, Equation &eq);
 };
-
-
-#endif

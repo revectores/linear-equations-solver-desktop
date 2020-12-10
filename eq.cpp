@@ -2,7 +2,7 @@
 #include "utils.h"
 
 
-bool Matrix::operator==(Matrix other){
+bool Matrix::operator==(Matrix other) const {
     if ((rows != other.rows) || (cols != other.cols)){
         return false;
     }
@@ -16,7 +16,38 @@ bool Matrix::operator==(Matrix other){
 }
 
 
-Matrix Matrix::operator*(long double coef){
+Matrix Matrix::operator+(Matrix other) const {
+    if (rows != other.rows || cols != other.cols){
+        std::cout << "sum not fit" << std::endl;
+        throw Matrix::dimension_not_fit();
+    }
+    Matrix S(m);
+    for (int r = 0; r < rows; r++){
+        for (int c = 0; c < cols; c++){
+            S[r][c] += other[r][c];
+        }
+    }
+    return S;
+}
+
+
+Matrix Matrix::operator-() const {
+    Matrix M(m);
+    for (int r = 0; r < rows; r++){
+        for (int c = 0; c < cols; c++){
+            M[r][c] = - M[r][c];
+        }
+    }
+    return M;
+}
+
+
+Matrix Matrix::operator-(Matrix other) const {
+    return (*this) + (-other);
+}
+
+
+Matrix Matrix::operator*(long double coef) const {
     Matrix prod(*this);
     for (int r = 0; r < prod.rows; r++) {
         for (int c = 0; c < prod.cols; c++) {
@@ -27,8 +58,9 @@ Matrix Matrix::operator*(long double coef){
 }
 
 
-Matrix Matrix::operator*(Matrix other){
+Matrix Matrix::operator*(Matrix other) const {
     if (cols != other.rows) {
+        std::cout << "mul not fit" << std::endl;
         throw Matrix::dimension_not_fit();
     }
     Matrix prod(rows, other.cols);
@@ -41,6 +73,12 @@ Matrix Matrix::operator*(Matrix other){
         }
     }
     return prod;
+}
+
+
+Matrix Matrix::get_inverse() const {
+    Matrix MM = get_augment(get_identity());
+    return MM.to_upper().upper2diag().diag2identity().get_col_slice(cols, cols * 2);
 }
 
 
@@ -72,7 +110,56 @@ std::ostream& operator<< (std::ostream& os, Matrix &m){
 
 
 
-Matrix Matrix::col(int c){
+bool Matrix::is_empty() const {
+    return (rows == 0) && (cols == 0);
+}
+
+
+bool Matrix::is_symmetric() const {
+    return (*this) == get_transpose();
+}
+
+
+bool Matrix::is_upper() const {
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < r; c++) {
+            if (!is_zero(m[r][c])) return false;
+        }
+    }
+    return true;
+}
+
+
+bool Matrix::is_lower() const {
+    return get_transpose().is_upper();
+}
+
+
+bool Matrix::is_diag() const {
+    return is_upper() && is_lower();
+}
+
+
+long double Matrix::inf_norm() const {
+    std::vector<long double> row_sum(rows, 0);
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            row_sum[r] += abs(m[r][c]);
+        }
+    }
+
+    long double max_sum = row_sum[0];
+    for (int r = 1; r < rows; r++) {
+        if (row_sum[r] > max_sum) {
+            max_sum = row_sum[r];
+        }
+    }
+
+    return max_sum;
+}
+
+
+Matrix Matrix::col(int c) const {
     if (c >= cols) {
         throw std::out_of_range("column range exceeded");
     }
@@ -84,40 +171,70 @@ Matrix Matrix::col(int c){
 }
 
 
-Matrix Matrix::last_col(){
+Matrix Matrix::last_col() const {
     return col(cols-1);
 }
 
 
-Matrix Matrix::get_transpose(){
+Matrix Matrix::get_col_slice(int col_st, int col_ed) const {
+    assert (col_ed >= col_st);
+    if (col_ed > cols) throw std::out_of_range("col range exceeded");
+
+    matrix_t s;
+    for (int r = 0; r < rows; r++){
+        s.push_back(std::vector<long double> (m[r].begin() + col_st, m[r].begin() + col_ed));
+    }
+
+    return Matrix(s);
+}
+
+
+
+Matrix Matrix::get_upper() const {
+    Matrix U(rows, cols);
+    for (int r = 0; r < rows; r++){
+        for (int c = r + 1; c < cols; c++){
+            U[r][c] = m[r][c];
+        }
+    }
+    return U;
+}
+
+
+Matrix Matrix::get_lower() const {
+    Matrix L(rows, cols);
+    for (int r = 1; r < rows; r++){
+        for (int c = 0; c < r; c++){
+            L[r][c] = m[r][c];
+        }
+    }
+    return L;
+}
+
+
+Matrix Matrix::get_diag() const {
+    Matrix D(rows, cols);
+    for (int r = 0; r < rows; r++){
+        D[r][r] = m[r][r];
+    }
+    return D;
+}
+
+
+Matrix Matrix::get_identity() const {
+    Matrix I(rows, cols);
+    for (int r = 0; r < rows; r++){
+        I[r][r] = 1;
+    }
+    return I;
+}
+
+
+
+Matrix Matrix::get_transpose() const {
     Matrix T(cols, rows);
     for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) T[c][r] = m[r][c];
     return T;
-}
-
-
-bool Matrix::is_symmetric(){
-    return (*this) == get_transpose();
-}
-
-
-bool Matrix::is_upper(){
-    for (int r = 0; r < rows; r++) {
-        for (int c = 0; c < r; c++) {
-            if (!is_zero(m[r][c])) return false;
-        }
-    }
-    return true;
-}
-
-
-bool Matrix::is_lower(){
-    return get_transpose().is_upper();
-}
-
-
-bool Matrix::is_diag(){
-    return is_upper() && is_lower();
 }
 
 
@@ -149,7 +266,6 @@ Matrix Matrix::line_elimination(int r1, int r2){
     if ((r1 >= rows) || (r2 >= rows)) throw std::out_of_range("row range exceeded");
     return *this;
 }
-
 
 
 
@@ -203,33 +319,29 @@ Matrix Matrix::upper2diag(){
 
 
 Matrix Matrix::diag2identity(){
-    for (int r = 0; r < rows; r++){
-        m[r][cols - 1] /= m[r][r];
-        m[r][r] = 1;
+    for (int r = 0; r < rows; r++) {
+        for (int c = cols - 1; c >= 0; c--){
+            m[r][c] /= m[r][r];
+        }
     }
-    // for (int r = 0; r < rows; r++) {
-    //     for (int c = 0; c < cols; c++){
-    //         m[r][c] /= m[r][r];
-    //     }
-    // }
     return *this;
 }
 
 
-Matrix Matrix::get_augment(Matrix b){
-    if (b.rows != rows){
+Matrix Matrix::get_augment(Matrix A) const {
+    if (A.rows != rows){
         throw Matrix::dimension_not_fit();
     }
-    Matrix Mb(*this);
-    for (int row = 0; row < rows; row++){
-        Mb.m[row].push_back(b[row][0]);
+    Matrix MA(*this);
+    for (int r = 0; r < rows; r++) {
+        MA.m[r].insert(MA.m[r].end(), A.m[r].begin(), A.m[r].end());
     }
-    Mb.cols += 1;
-    return Mb;
+    MA.cols += A.cols;
+    return MA;
 }
 
 
-std::vector<Matrix> Matrix::Doolittle_decompose(){
+std::vector<Matrix> Matrix::Doolittle_decompose() const {
     if (rows != cols) throw Matrix::not_square();
 
     Matrix L(rows, cols);
@@ -251,7 +363,7 @@ std::vector<Matrix> Matrix::Doolittle_decompose(){
 }
 
 
-std::vector<Matrix> Matrix::Crout_decompose(){
+std::vector<Matrix> Matrix::Crout_decompose() const {
     if (rows != cols) throw Matrix::not_square();
 
     Matrix L(rows, cols);
@@ -274,7 +386,7 @@ std::vector<Matrix> Matrix::Crout_decompose(){
 }
 
 
-std::vector<Matrix> Matrix::Cholesky_decompose(){
+std::vector<Matrix> Matrix::Cholesky_decompose() const {
     if (rows != cols)    throw Matrix::not_square();
     if (!is_symmetric()) throw Matrix::not_symmetric_positive_definite();
 
@@ -294,7 +406,7 @@ std::vector<Matrix> Matrix::Cholesky_decompose(){
 }
 
 
-std::vector<Matrix> Matrix::refined_Cholesky_decompose(){
+std::vector<Matrix> Matrix::refined_Cholesky_decompose() const {
     if (rows != cols)    throw Matrix::not_square();
     if (!is_symmetric()) throw Matrix::not_symmetric_positive_definite();
 
@@ -313,6 +425,85 @@ std::vector<Matrix> Matrix::refined_Cholesky_decompose(){
         }
     }
     return {L, D, L.get_transpose()};
+}
+
+
+Matrix Equation::Jacobi_iteration(Matrix init_vector, long double precision, size_t* iteration_counter){
+    Matrix D = A.get_diag();
+    Matrix I = A.get_identity();
+
+    Matrix B = I - D.get_inverse() * A;
+    Matrix g = D.get_inverse() * b;
+
+    Matrix x1(b.rows, 1, 0);
+    Matrix x2(b.rows, 1, 1);
+
+    if (!init_vector.is_empty()){
+        x2 = init_vector;
+        x1 = x2 - Matrix(x2.rows, 1, 1);
+    }
+
+    while ((x1 - x2).inf_norm() > precision){
+        (*iteration_counter)++;
+        x1 = x2;
+        x2 = B * x1 + g;
+    }
+
+    return x2;
+}
+
+
+Matrix Equation::Gauss_Seidol_iteration(Matrix init_vector, long double precision, size_t* iteration_counter){
+    Matrix D = A.get_diag();
+    Matrix L = A.get_lower();
+    Matrix U = A.get_upper();
+    assert(D + L + U == A);
+    Matrix S = -(D + L).get_inverse() * U;
+    Matrix f = (D + L).get_inverse() * b;
+
+    Matrix x1(b.rows, 1, 0);
+    Matrix x2(b.rows, 1, 1);
+
+    if (!init_vector.is_empty()){
+        x2 = init_vector;
+        x1 = x2 - Matrix(x2.rows, 1, 1);
+    }
+
+    while ((x1 - x2).inf_norm() > precision) {
+        (*iteration_counter)++;
+        x1 = x2;
+        x2 = S * x1 + f;
+    }
+
+    return x2;
+}
+
+
+Matrix Equation::SOR(long double w, Matrix init_vector, long double precision, size_t* iteration_counter){
+    Matrix D = A.get_diag();
+    Matrix L = A.get_lower();
+    Matrix U = A.get_upper();
+    Matrix I = A.get_identity();
+    assert(D + L + U == A);
+
+    Matrix Sw = -(D + L * w).get_inverse() * (U * w + D * (w - 1));
+    Matrix fw = (D + L * w).get_inverse() * b * w;
+
+    Matrix x1(b.rows, 1, 0);
+    Matrix x2(b.rows, 1, 1);
+
+    if (!init_vector.is_empty()){
+        x2 = init_vector;
+        x1 = x2 - Matrix(x2.rows, 1, 1);
+    }
+
+    while ((x1 - x2).inf_norm() > precision) {
+        (*iteration_counter)++;
+        x1 = x2;
+        x2 = Sw * x1 + fw;
+    }
+
+    return x2;
 }
 
 
@@ -341,22 +532,22 @@ Matrix Equation::Gaussian_elimination_with_column_pivot() {
 }
 
 
-Equations Equation::Doolittle_decompose(){
+Equations Equation::Doolittle_decompose() const {
     return Equations(A.Doolittle_decompose(), b);
 }
 
 
-Equations Equation::Crout_decompose(){
+Equations Equation::Crout_decompose() const {
     return Equations(A.Crout_decompose(), b);
 }
 
 
-Equations Equation::Cholesky_decompose(){
+Equations Equation::Cholesky_decompose() const {
     return Equations(A.Cholesky_decompose(), b);
 }
 
 
-Equations Equation::refined_Cholesky_decompose(){
+Equations Equation::refined_Cholesky_decompose() const {
     return Equations(A.refined_Cholesky_decompose(), b);
 }
 
