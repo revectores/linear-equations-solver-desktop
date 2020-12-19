@@ -1,0 +1,3 @@
+[submodule "revector"]
+	path = revector
+	url = https://github.com/revectores/revector

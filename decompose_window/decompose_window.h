@@ -11,8 +11,8 @@
 #include <QtCharts>
 
 #include <QMessageBox>
+#include "matrix.h"
 #include "utils.h"
-#include "eq_test.h"
 
 
 const int TABLE_COUNT = 3;

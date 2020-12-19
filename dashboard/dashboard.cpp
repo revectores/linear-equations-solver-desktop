@@ -1,6 +1,7 @@
-#include "dashboard.h"
 #include <cstdio>
 #include <cmath>
+#include "demo_eqs.h"
+#include "dashboard.h"
 
 
 
@@ -138,7 +139,7 @@ void Dashboard::action_group_init(){
     QGridLayout *layout = new QGridLayout;
 
     QPushButton *solve_btn = new QPushButton("Solve");
-    QPushButton *demo_btns[TEST_EQUATIONS.size()];
+    QPushButton *demo_btns[DEMO_EQUATIONS.size()];
 
     QPushButton *clear_btn = new QPushButton("Clear");
     QPushButton *exit_btn = new QPushButton("Exit");
@@ -146,7 +147,7 @@ void Dashboard::action_group_init(){
     connect(solve_btn, &QPushButton::clicked, this, &Dashboard::solve);
     connect(clear_btn, &QPushButton::clicked, this, &Dashboard::clear);
 
-    for (int i = 0; i < TEST_EQUATIONS.size(); i++){
+    for (int i = 0; i < DEMO_EQUATIONS.size(); i++){
         demo_btns[i] = new QPushButton(QString("Equation ") + QString::number(i + 1));
         connect(demo_btns[i], &QPushButton::clicked, this, [=]{demo(i);});
         layout->addWidget(demo_btns[i], 1, i);
@@ -228,7 +229,7 @@ void Dashboard::method_radio_checked(int method_radio_id){
 
 
 void Dashboard::demo(int demo_id){
-    Equation eq = TEST_EQUATIONS[demo_id];
+    Equation eq = DEMO_EQUATIONS[demo_id];
     Matrix A = eq.A;
     Matrix b = eq.b;
 
@@ -398,16 +399,14 @@ void Dashboard::solve(){
     Equations eqs;
     Matrix solution;
     Matrix init_vector;
-    long double precision;
     long double relaxation_factor;
-    size_t iteration_counter = 0;
 
     if (method_id >= JACOBI_ITERATION) {
-        precision = read_precision();
-        if (precision == 0) {
-            precision = 1e-6;
+        eq.precision = read_precision();
+        if (eq.precision == 0) {
+            eq.precision = 1e-6;
         }
-        std::cout << "precision: " << precision << std::endl;
+        std::cout << "eq.precision: " << eq.precision << std::endl;
 
         init_vector = Matrix(eq.b.rows, 1, 1);
         // init_vector = read_init_vector();
@@ -434,7 +433,7 @@ void Dashboard::solve(){
             break;
 
         case GAUSSIAN_ELIMINATOIN_WITH_COLUMN_PIVOT:
-            solution = eq.Gaussian_elimination_with_column_pivot();
+            solution = eq.Gaussian_elimination_with_pivoting();
             break;
 
         case DOOLITTLE_DECOMPOSE:
@@ -466,15 +465,15 @@ void Dashboard::solve(){
             break;
 
         case JACOBI_ITERATION:
-            solution = eq.Jacobi_iteration(init_vector, precision, &iteration_counter);
+            solution = eq.Jacobi_iteration(init_vector);
             break;
 
         case GAUSS_SEIDOL_ITERATION:
-            solution = eq.Gauss_Seidol_iteration(init_vector, precision, &iteration_counter);
+            solution = eq.Gauss_Seidol_iteration(init_vector);
             break;
 
         case SOR:
-            solution = eq.SOR(relaxation_factor, init_vector, precision, &iteration_counter);
+            solution = eq.SOR(relaxation_factor, init_vector);
             break;
         }
 
@@ -483,7 +482,7 @@ void Dashboard::solve(){
         return;
     }
 
-    std::cout << iteration_counter << std::endl; fflush(stdout);
+    std::cout << eq.iteration_count << std::endl; fflush(stdout);
     // std::cout << solution << std::endl; fflush(stdout);
     if (std::isnan(solution[0][0]) || std::isinf(solution[0][0])){
         clear_solution_table();
@@ -492,7 +491,7 @@ void Dashboard::solve(){
         fill_solution(solution);
         std::string msg = "The equation has been successfully solved by " + RADIO_STRINGS[method_id];
         if (get_cur_method_type() == ITERATION) {
-            msg += " in " + std::to_string(iteration_counter) + " iterations";
+            msg += " in " + std::to_string(eq.iteration_count) + " iterations";
         }
         info_msg(msg);
     }

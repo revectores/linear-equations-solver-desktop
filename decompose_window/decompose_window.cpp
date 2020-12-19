@@ -1,3 +1,4 @@
+#include "matrix.h"
 #include "decompose_window.h"
 
 DecomposeWindow::DecomposeWindow(QWidget *parent) : QWidget(parent) {

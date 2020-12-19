@@ -12,12 +12,10 @@
 
 #include <string>
 #include "utils.h"
-#include "eq_test.h"
 #include "decompose_window.h"
 
 
-
-extern std::vector<Equation> TEST_EQUATIONS;
+// extern std::vector<Equation> DEMO_EQUATIONS;
 const int METHOD_COUNT = 9;
 
 
